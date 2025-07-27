@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "@heroui/link";
 import {
   Navbar as HeroUINavbar,
@@ -29,7 +28,6 @@ import { useAuth } from "@/context/AuthContext";
 export const Navbar = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
@@ -39,10 +37,8 @@ export const Navbar = () => {
   return (
     <HeroUINavbar
       className="backdrop-blur-md bg-gradient-to-r from-purple-100/90 to-pink-100/90 supports-[backdrop-filter]:bg-gradient-to-r supports-[backdrop-filter]:from-purple-100/90 supports-[backdrop-filter]:to-pink-100/90 z-50 border-b border-purple-300/60 shadow-lg"
-      isMenuOpen={isMenuOpen}
       maxWidth="xl"
       position="sticky"
-      onMenuOpenChange={setIsMenuOpen}
     >
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand className="gap-3 max-w-fit">
@@ -88,12 +84,11 @@ export const Navbar = () => {
           {loading ? (
             <div className="animate-pulse bg-gray-200 h-8 w-20 rounded" />
           ) : user ? (
-            <Dropdown placement="bottom-end">
+            <Dropdown>
               <DropdownTrigger>
                 <Avatar
-                  isBordered
                   as="button"
-                  className="transition-transform cursor-pointer"
+                  className="transition-transform"
                   name={user.email?.charAt(0).toUpperCase()}
                   size="sm"
                   src={user.user_metadata?.avatar_url}

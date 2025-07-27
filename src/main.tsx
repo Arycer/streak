@@ -2,7 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
-import { NotificationScheduler } from "./services/notificationScheduler";
 import App from "./App.tsx";
 import { Provider } from "./provider.tsx";
 import "@/styles/globals.css";
@@ -30,6 +29,3 @@ if ("serviceWorker" in navigator) {
       });
   });
 }
-
-// Initialize notification scheduler
-NotificationScheduler.getInstance().initialize();
