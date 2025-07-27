@@ -1,11 +1,12 @@
 import { Route, Routes } from "react-router-dom";
 
+import WeekPage from "./pages/week";
+
 import IndexPage from "@/pages/index";
 import TodayPage from "@/pages/today";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import SummaryPage from "@/pages/summary";
-import WeekPage from "./pages/week";
 
 function App() {
   return (

@@ -52,6 +52,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const userResponse = await supabase.auth.getUser();
 
         setUser(userResponse.data.user);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         setUser(null);
       } finally {

@@ -34,7 +34,7 @@ export const siteConfig = {
     {
       label: "Resumen",
       href: "/summary",
-    },    
+    },
     {
       label: "Hoy",
       href: "/today",

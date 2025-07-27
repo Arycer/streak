@@ -21,7 +21,9 @@ export default function DefaultLayout({
           href="https://arycer.me"
           title="Arycer portfolio"
         >
-          <span className="text-gray-600 font-medium">Made with ❤️ by Arycer</span>
+          <span className="text-gray-600 font-medium">
+            Made with ❤️ by Arycer
+          </span>
         </Link>
       </footer>
     </div>

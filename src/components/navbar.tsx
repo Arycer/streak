@@ -78,20 +78,20 @@ export const Navbar = () => {
             <GithubIcon className="text-default-500" />
           </Link>
         </NavbarItem>
-        
+
         {/* Authentication Section */}
         <NavbarItem className="hidden md:flex">
           {loading ? (
-            <div className="animate-pulse bg-gray-200 h-8 w-20 rounded"></div>
+            <div className="animate-pulse bg-gray-200 h-8 w-20 rounded" />
           ) : user ? (
             <Dropdown>
               <DropdownTrigger>
                 <Avatar
                   as="button"
                   className="transition-transform"
+                  name={user.email?.charAt(0).toUpperCase()}
                   size="sm"
                   src={user.user_metadata?.avatar_url}
-                  name={user.email?.charAt(0).toUpperCase()}
                 />
               </DropdownTrigger>
               <DropdownMenu aria-label="Profile Actions" variant="flat">
@@ -100,7 +100,11 @@ export const Navbar = () => {
                   <p className="font-semibold">{user.email}</p>
                 </DropdownItem>
                 <DropdownItem key="settings">Configuración</DropdownItem>
-                <DropdownItem key="logout" color="danger" onClick={handleLogout}>
+                <DropdownItem
+                  key="logout"
+                  color="danger"
+                  onClick={handleLogout}
+                >
                   Cerrar Sesión
                 </DropdownItem>
               </DropdownMenu>
@@ -111,8 +115,8 @@ export const Navbar = () => {
                 as={Link}
                 color="primary"
                 href="/login"
-                variant="flat"
                 size="sm"
+                variant="flat"
               >
                 Iniciar Sesión
               </Button>
@@ -120,8 +124,8 @@ export const Navbar = () => {
                 as={Link}
                 color="primary"
                 href="/register"
-                variant="solid"
                 size="sm"
+                variant="solid"
               >
                 Registrarse
               </Button>
@@ -147,18 +151,18 @@ export const Navbar = () => {
               </Link>
             </NavbarMenuItem>
           ))}
-          
+
           {/* Mobile Auth Section */}
           <div className="mt-4 pt-4 border-t border-default-200">
             {loading ? (
-              <div className="animate-pulse bg-gray-200 h-8 w-full rounded"></div>
+              <div className="animate-pulse bg-gray-200 h-8 w-full rounded" />
             ) : user ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3 p-2">
                   <Avatar
+                    name={user.email?.charAt(0).toUpperCase()}
                     size="sm"
                     src={user.user_metadata?.avatar_url}
-                    name={user.email?.charAt(0).toUpperCase()}
                   />
                   <div>
                     <p className="text-sm font-semibold">Conectado como</p>
@@ -166,11 +170,11 @@ export const Navbar = () => {
                   </div>
                 </div>
                 <Button
-                  color="danger"
-                  variant="flat"
-                  size="sm"
-                  onClick={handleLogout}
                   className="w-full"
+                  color="danger"
+                  size="sm"
+                  variant="flat"
+                  onClick={handleLogout}
                 >
                   Cerrar Sesión
                 </Button>
@@ -179,21 +183,21 @@ export const Navbar = () => {
               <div className="flex flex-col gap-2">
                 <Button
                   as={Link}
+                  className="w-full"
                   color="primary"
                   href="/login"
-                  variant="flat"
                   size="sm"
-                  className="w-full"
+                  variant="flat"
                 >
                   Iniciar Sesión
                 </Button>
                 <Button
                   as={Link}
+                  className="w-full"
                   color="primary"
                   href="/register"
-                  variant="solid"
                   size="sm"
-                  className="w-full"
+                  variant="solid"
                 >
                   Registrarse
                 </Button>
