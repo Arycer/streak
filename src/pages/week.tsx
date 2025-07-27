@@ -121,6 +121,7 @@ export default function WeekPage() {
   const [isTaskPaletteOpen, setIsTaskPaletteOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const {
     isOpen: isEditOpen,
@@ -132,6 +133,18 @@ export default function WeekPage() {
     onOpen: onNewOpen,
     onClose: onNewClose,
   } = useDisclosure();
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+
+    checkIsMobile();
+    window.addEventListener("resize", checkIsMobile);
+
+    return () => window.removeEventListener("resize", checkIsMobile);
+  }, []);
 
   useEffect(() => {
     if (!user || authLoading) return;
@@ -418,11 +431,16 @@ export default function WeekPage() {
 
         <div className="max-w-7xl w-full px-4">
           {/* Action buttons */}
-          <div className="flex justify-between items-center mb-6">
-            <Button className="font-medium" color="primary" onPress={onNewOpen}>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0 mb-6">
+            <Button
+              className="font-medium w-full sm:w-auto"
+              color="primary"
+              onPress={onNewOpen}
+            >
               Nueva Tarea
             </Button>
             <Button
+              className="hidden sm:block w-full sm:w-auto"
               color="secondary"
               variant="flat"
               onPress={() => setIsTaskPaletteOpen(!isTaskPaletteOpen)}
@@ -435,10 +453,13 @@ export default function WeekPage() {
           {isTaskPaletteOpen && (
             <Card className="mb-6 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
               <CardBody className="p-4">
-                <h3 className="text-lg font-semibold mb-3">
-                  Paleta de Tareas (Arrastra para asignar)
+                <h3 className="text-base sm:text-lg font-semibold mb-3">
+                  <span className="sm:hidden">Paleta de Tareas</span>
+                  <span className="hidden sm:inline">
+                    Paleta de Tareas (Arrastra para asignar)
+                  </span>
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                   {tasks.map((task) => (
                     <div
                       key={`palette-${task.id}`}
@@ -481,12 +502,18 @@ export default function WeekPage() {
           )}
 
           {/* Weekly Calendar Grid */}
-          <div className="grid grid-cols-7 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 mb-4">
             {DAYS_OF_WEEK.map((day) => (
               <div key={day.key} className="text-center">
-                <h3 className="font-semibold text-lg mb-2">{day.short}</h3>
+                <h3 className="font-semibold text-lg mb-2 sm:text-base lg:text-lg">
+                  <span className="sm:hidden">{day.label}</span>
+                  <span className="hidden sm:inline lg:hidden">
+                    {day.short}
+                  </span>
+                  <span className="hidden lg:inline">{day.short}</span>
+                </h3>
                 <div
-                  className={`min-h-[400px] p-3 rounded-xl border-2 border-dashed transition-all ${
+                  className={`min-h-[300px] sm:min-h-[350px] lg:min-h-[400px] p-2 sm:p-3 rounded-xl border-2 border-dashed transition-all ${
                     dragOverDay === day.key
                       ? "border-blue-400 bg-blue-100/50 backdrop-blur-sm"
                       : "border-gray-300/50 bg-white/30 backdrop-blur-sm"
@@ -499,9 +526,8 @@ export default function WeekPage() {
                     {getTasksForDay(day.key).map((task) => (
                       <div
                         key={`${task.id}-${day.key}`}
-                        draggable
-                        aria-label={`Tarea ${task.name} en ${day.label}. Click para editar o arrastrar para mover`}
-                        className={`p-3 rounded-lg border cursor-move transition-all shadow-md hover:shadow-lg hover:scale-105 ${getTaskColorClasses(
+                        aria-label={`Tarea ${task.name} en ${day.label}. Click para editar${!isMobile ? " o arrastrar para mover" : ""}`}
+                        className={`p-2 sm:p-3 rounded-lg border cursor-pointer sm:cursor-move transition-all shadow-md hover:shadow-lg hover:scale-105 ${getTaskColorClasses(
                           task.color,
                         )} ${
                           draggedTask?.task.id === task.id &&
@@ -509,11 +535,16 @@ export default function WeekPage() {
                             ? "opacity-50 scale-95"
                             : ""
                         }`}
+                        draggable={!isMobile}
                         role="button"
                         tabIndex={0}
                         onClick={() => handleEditTask(task)}
-                        onDragEnd={handleDragEnd}
-                        onDragStart={(e) => handleDragStart(e, task, day.key)}
+                        onDragEnd={!isMobile ? handleDragEnd : undefined}
+                        onDragStart={
+                          !isMobile
+                            ? (e) => handleDragStart(e, task, day.key)
+                            : undefined
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
@@ -524,13 +555,15 @@ export default function WeekPage() {
                           }
                         }}
                       >
-                        <div className="text-sm font-medium">{task.name}</div>
+                        <div className="text-sm font-medium truncate">
+                          {task.name}
+                        </div>
                         <div className="text-xs text-gray-600">{task.time}</div>
                       </div>
                     ))}
 
-                    {dragOverDay === day.key && (
-                      <div className="p-2 text-center text-sm text-blue-600 bg-blue-100 rounded-lg border-2 border-dashed border-blue-300">
+                    {!isMobile && dragOverDay === day.key && (
+                      <div className="p-2 text-center text-xs sm:text-sm text-blue-600 bg-blue-100 rounded-lg border-2 border-dashed border-blue-300">
                         Suelta aquí
                       </div>
                     )}
@@ -541,7 +574,7 @@ export default function WeekPage() {
           </div>
 
           {/* Delete Zone */}
-          {draggedTask && draggedTask.sourceDay && (
+          {!isMobile && draggedTask && draggedTask.sourceDay && (
             <div
               aria-label="Zona de eliminación de tareas"
               className="fixed bottom-4 right-4 p-4 bg-red-100 border-2 border-dashed border-red-400 rounded-lg text-red-700 text-center z-50"
