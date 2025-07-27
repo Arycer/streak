@@ -108,8 +108,130 @@ self.addEventListener('sync', (event) => {
   // Handle background sync events here
 });
 
-// Push notifications (for future use)
+// Push notifications - Handle task reminders
 self.addEventListener('push', (event) => {
-  console.log('Service Worker: Push received', event);
-  // Handle push notifications here
+  console.log('Service Worker: Push notification received', event);
+  
+  let notificationData = {
+    title: '¡Hora de tu hábito!',
+    body: 'Es momento de completar una de tus tareas',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-72x72.png',
+    tag: 'task-reminder',
+    requireInteraction: true,
+    actions: [
+      {
+        action: 'complete',
+        title: '✅ Completar',
+        icon: '/icons/icon-72x72.png'
+      },
+      {
+        action: 'snooze',
+        title: '⏰ Recordar en 10min',
+        icon: '/icons/icon-72x72.png'
+      },
+      {
+        action: 'dismiss',
+        title: '❌ Descartar',
+        icon: '/icons/icon-72x72.png'
+      }
+    ],
+    data: {
+      url: '/today',
+      taskId: null,
+      timestamp: Date.now()
+    }
+  };
+
+  // Parse push data if available
+  if (event.data) {
+    try {
+      const pushData = event.data.json();
+      notificationData = {
+        ...notificationData,
+        ...pushData,
+        data: {
+          ...notificationData.data,
+          ...pushData.data
+        }
+      };
+    } catch (error) {
+      console.error('Error parsing push data:', error);
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, notificationData)
+  );
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  console.log('Notification clicked:', event);
+  
+  event.notification.close();
+  
+  const action = event.action;
+  const data = event.notification.data || {};
+  
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({ type: 'window' });
+      
+      switch (action) {
+        case 'complete':
+          // Mark task as complete
+          if (data.taskId) {
+            // Send message to client to complete task
+            if (clients.length > 0) {
+              clients[0].postMessage({
+                type: 'COMPLETE_TASK',
+                taskId: data.taskId
+              });
+              clients[0].focus();
+            } else {
+              // Open app to complete task
+              await self.clients.openWindow(`${data.url}?complete=${data.taskId}`);
+            }
+          }
+          break;
+          
+        case 'snooze':
+          // Schedule another notification in 10 minutes
+          console.log('Snoozing notification for 10 minutes');
+          setTimeout(() => {
+            self.registration.showNotification(
+              `🔔 Recordatorio: ${event.notification.title}`,
+              {
+                ...event.notification,
+                body: `Recordatorio pospuesto: ${event.notification.body}`,
+                tag: `${event.notification.tag}-snooze`,
+                timestamp: Date.now()
+              }
+            );
+          }, 10 * 60 * 1000); // 10 minutes
+          break;
+          
+        case 'dismiss':
+          // Just close, no action needed
+          console.log('Notification dismissed');
+          break;
+          
+        default:
+          // Default click - open the app
+          if (clients.length > 0) {
+            clients[0].focus();
+          } else {
+            await self.clients.openWindow(data.url || '/');
+          }
+          break;
+      }
+    })()
+  );
+});
+
+// Handle notification close
+self.addEventListener('notificationclose', (event) => {
+  console.log('Notification closed:', event.notification.tag);
+  // Track notification dismissal if needed
 });
