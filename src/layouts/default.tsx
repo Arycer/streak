@@ -1,4 +1,5 @@
 import { Link } from "@heroui/link";
+import React from "react";
 
 import { Navbar } from "@/components/navbar";
 
@@ -17,11 +18,10 @@ export default function DefaultLayout({
         <Link
           isExternal
           className="flex items-center gap-1 text-current"
-          href="https://heroui.com"
-          title="heroui.com homepage"
+          href="https://arycer.me"
+          title="Arycer portfolio"
         >
-          <span className="text-default-600">Powered by</span>
-          <p className="text-primary">HeroUI</p>
+          <span className="text-default-600">Made by Arycer</span>
         </Link>
       </footer>
     </div>
