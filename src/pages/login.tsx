@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   const navigate = useNavigate();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -24,6 +24,7 @@ export default function LoginPage() {
     // Validaciones básicas
     if (!email || !password) {
       setError("Email y contraseña son obligatorios");
+
       return;
     }
 
@@ -41,6 +42,7 @@ export default function LoginPage() {
         // Redirigir al dashboard/home después del login exitoso
         navigate("/");
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       setError("Error inesperado. Inténtalo de nuevo.");
     } finally {
@@ -51,6 +53,7 @@ export default function LoginPage() {
   const handleForgotPassword = async () => {
     if (!email) {
       setError("Ingresa tu email para recuperar la contraseña");
+
       return;
     }
 
@@ -68,6 +71,7 @@ export default function LoginPage() {
         setError(""); // Clear any previous errors
         alert("Se ha enviado un email para restablecer tu contraseña");
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       setError("Error al enviar email de recuperación");
     } finally {
@@ -90,7 +94,7 @@ export default function LoginPage() {
             <h2 className="text-xl font-semibold text-center w-full">Login</h2>
           </CardHeader>
           <CardBody className="p-6">
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form className="space-y-4" onSubmit={handleLogin}>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                   {error}
@@ -98,22 +102,17 @@ export default function LoginPage() {
               )}
 
               <Input
-                type="email"
+                isRequired
                 label="Email"
                 placeholder="tu@email.com"
+                type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                isRequired
                 variant="bordered"
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               <Input
-                label="Contraseña"
-                placeholder="Ingresa tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 isRequired
-                variant="bordered"
                 endContent={
                   <button
                     className="focus:outline-none text-gray-400 hover:text-gray-600"
@@ -123,27 +122,32 @@ export default function LoginPage() {
                     {isVisible ? "🙈" : "👁️"}
                   </button>
                 }
+                label="Contraseña"
+                placeholder="Ingresa tu contraseña"
                 type={isVisible ? "text" : "password"}
+                value={password}
+                variant="bordered"
+                onChange={(e) => setPassword(e.target.value)}
               />
 
               <div className="flex justify-end">
                 <button
-                  type="button"
-                  onClick={handleForgotPassword}
                   className="text-sm text-blue-600 hover:text-blue-800"
                   disabled={loading}
+                  type="button"
+                  onClick={handleForgotPassword}
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
 
               <Button
-                type="submit"
-                color="primary"
-                size="lg"
                 className="w-full"
-                isLoading={loading}
+                color="primary"
                 disabled={loading}
+                isLoading={loading}
+                size="lg"
+                type="submit"
               >
                 {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
               </Button>
@@ -152,9 +156,9 @@ export default function LoginPage() {
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 ¿No tienes una cuenta?{" "}
-                <Link 
-                  to="/register" 
+                <Link
                   className="text-blue-600 hover:text-blue-800 font-medium"
+                  to="/register"
                 >
                   Regístrate
                 </Link>

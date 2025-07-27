@@ -29,6 +29,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       email,
       password,
     });
+
     return { error };
   };
 
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       email,
       password,
     });
+
     return { error };
   };
 
@@ -47,16 +49,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const {
-          data: { user },
-          error
-        } = await supabase.auth.getUser();
+        const userResponse = await supabase.auth.getUser();
 
-        if (error) {
-          console.error('Error getting user:', error);
-        }
-
-        setUser(user ?? null);
+        setUser(userResponse.data.user);
       } catch (error) {
         setUser(null);
       } finally {
@@ -67,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     getUser();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         setUser(session?.user ?? null);
         setLoading(false);
       },

@@ -36,7 +36,7 @@ export const Navbar = () => {
 
   return (
     <HeroUINavbar
-      className="backdrop-blur bg-background/60 supports-[backdrop-filter]:bg-background/60 z-50 border-b border-default-100"
+      className="backdrop-blur-md bg-gradient-to-r from-purple-100/90 to-pink-100/90 supports-[backdrop-filter]:bg-gradient-to-r supports-[backdrop-filter]:from-purple-100/90 supports-[backdrop-filter]:to-pink-100/90 z-50 border-b border-purple-300/60 shadow-lg"
       maxWidth="xl"
       position="sticky"
     >

@@ -1,33 +1,125 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Card, CardBody, Checkbox, Badge, Chip } from "@heroui/react";
 
 import DefaultLayout from "@/layouts/default";
 import { title } from "@/components/primitives";
-import tasks from "@/data/weekly_tasks.json";
-import completedTasks from "@/data/completed_tasks.json";
-import {
-  Task,
-  CompletedTasks,
-  getDayOfWeek,
-  getColorClasses,
-  calculateCurrentStreak,
-  isStreakBrokenOnDay,
-} from "@/utils/streakUtils";
+import { TaskService, Task } from "@/services/taskService";
+import { CompletionService } from "@/services/completionService";
+import { StatsService, StreakStats } from "@/services/statsService";
+import { useAuth } from "@/context/AuthContext";
+
+// Helper functions
+const getDayOfWeek = (dateString: string): string => {
+  const date = new Date(dateString + "T00:00:00");
+  const days = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+
+  return days[date.getDay()];
+};
+
+const getTaskColorClasses = (color: string) => {
+  const colorMap: Record<string, { bg: string; text: string; border: string }> =
+    {
+      blue: {
+        bg: "bg-blue-100",
+        text: "text-blue-800",
+        border: "border-blue-200",
+      },
+      green: {
+        bg: "bg-green-100",
+        text: "text-green-800",
+        border: "border-green-200",
+      },
+      red: { bg: "bg-red-100", text: "text-red-800", border: "border-red-200" },
+      orange: {
+        bg: "bg-orange-100",
+        text: "text-orange-800",
+        border: "border-orange-200",
+      },
+      purple: {
+        bg: "bg-purple-100",
+        text: "text-purple-800",
+        border: "border-purple-200",
+      },
+      pink: {
+        bg: "bg-pink-100",
+        text: "text-pink-800",
+        border: "border-pink-200",
+      },
+      indigo: {
+        bg: "bg-indigo-100",
+        text: "text-indigo-800",
+        border: "border-indigo-200",
+      },
+      teal: {
+        bg: "bg-teal-100",
+        text: "text-teal-800",
+        border: "border-teal-200",
+      },
+      gray: {
+        bg: "bg-gray-100",
+        text: "text-gray-800",
+        border: "border-gray-200",
+      },
+    };
+
+  return colorMap[color] || colorMap.gray;
+};
 
 export default function TodayPage() {
+  const { user, loading: authLoading } = useAuth();
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().slice(0, 10);
   });
-  const [completedTasksState, setCompletedTasksState] =
-    useState<CompletedTasks>(completedTasks as CompletedTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskStats, setTaskStats] = useState<Record<string, StreakStats>>({});
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Get tasks for the selected day
   const selectedDayOfWeek = getDayOfWeek(selectedDate);
-  const tasksForDay = (tasks as Task[]).filter((task) =>
-    task.days.includes(selectedDayOfWeek),
+  const tasksForDay = tasks.filter(
+    (task) =>
+      task.days.includes(selectedDayOfWeek) && selectedDate >= task.created_at,
   );
 
-  const completedToday = completedTasksState[selectedDate] || [];
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const [tasksData, statsData, completionsData] = await Promise.all([
+          TaskService.getTasks(),
+          StatsService.getUserStats(),
+          CompletionService.getCompletionsForDate(selectedDate),
+        ]);
+
+        setTasks(tasksData);
+        setTaskStats(statsData.taskStreaks);
+        setCompletedTaskIds(
+          completionsData.map((completion) => completion.task_id),
+        );
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (err) {
+        setError("Error al cargar los datos. Por favor, inténtalo de nuevo.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user, authLoading, selectedDate]);
 
   // Navigation functions
   const goToPreviousDay = () => {
@@ -49,32 +141,26 @@ export default function TodayPage() {
   };
 
   // Toggle task completion
-  const toggleTaskCompletion = (taskId: string) => {
-    setCompletedTasksState((prev) => {
-      const currentCompleted = prev[selectedDate] || [];
-      const isCompleted = currentCompleted.includes(taskId);
-
-      let newCompleted: string[];
+  const toggleTaskCompletion = async (taskId: string) => {
+    try {
+      const isCompleted = completedTaskIds.includes(taskId);
 
       if (isCompleted) {
-        // Remove task from completed
-        newCompleted = currentCompleted.filter((id) => id !== taskId);
+        await CompletionService.markTaskIncomplete(taskId, selectedDate);
+        setCompletedTaskIds((prev) => prev.filter((id) => id !== taskId));
       } else {
-        // Add task to completed
-        newCompleted = [...currentCompleted, taskId];
+        await CompletionService.markTaskComplete(taskId, selectedDate);
+        setCompletedTaskIds((prev) => [...prev, taskId]);
       }
 
-      const newState = { ...prev };
+      // Refresh stats after completion change
+      const updatedStats = await StatsService.getUserStats();
 
-      if (newCompleted.length > 0) {
-        newState[selectedDate] = newCompleted;
-      } else {
-        // Remove empty arrays to keep JSON clean
-        delete newState[selectedDate];
-      }
-
-      return newState;
-    });
+      setTaskStats(updatedStats.taskStreaks);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      setError("Error al actualizar la tarea. Por favor, inténtalo de nuevo.");
+    }
   };
 
   // Format date for display
@@ -103,6 +189,47 @@ export default function TodayPage() {
     }
   };
 
+  if (authLoading || loading) {
+    return (
+      <DefaultLayout>
+        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+          <div className="animate-pulse text-center">
+            <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-4" />
+            <div className="h-4 bg-gray-200 rounded w-48 mx-auto" />
+          </div>
+        </section>
+      </DefaultLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DefaultLayout>
+        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+          <div className="text-center">
+            <h1 className={title()}>Error</h1>
+            <p className="text-red-600 mt-4">{error}</p>
+          </div>
+        </section>
+      </DefaultLayout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <DefaultLayout>
+        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+          <div className="text-center">
+            <h1 className={title()}>Acceso Requerido</h1>
+            <p className="text-gray-600 mt-4">
+              Debes iniciar sesión para ver tus tareas.
+            </p>
+          </div>
+        </section>
+      </DefaultLayout>
+    );
+  }
+
   const isToday = selectedDate === new Date().toISOString().slice(0, 10);
   const isFuture = selectedDate > new Date().toISOString().slice(0, 10);
 
@@ -115,7 +242,7 @@ export default function TodayPage() {
 
         <div className="max-w-4xl w-full px-4">
           {/* Date Navigation */}
-          <div className="flex items-center justify-between mb-6 bg-white rounded-lg p-4 shadow-sm border">
+          <div className="flex items-center justify-between mb-6 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border-0">
             <Button
               isIconOnly
               className="text-gray-600 hover:text-gray-800"
@@ -132,117 +259,113 @@ export default function TodayPage() {
               <p className="text-sm text-gray-500">
                 {new Date(selectedDate).toLocaleDateString("es-ES", {
                   day: "numeric",
-                  month: "short",
+                  month: "long",
                   year: "numeric",
                 })}
               </p>
-              {!isToday && (
-                <Button
-                  className="mt-1 text-blue-600"
-                  size="sm"
-                  variant="light"
-                  onPress={goToToday}
-                >
-                  Ir a hoy
-                </Button>
-              )}
             </div>
 
-            <Button
-              isIconOnly
-              className="text-gray-600 hover:text-gray-800"
-              variant="light"
-              onPress={goToNextDay}
-            >
-              →
-            </Button>
+            <div className="flex gap-2">
+              {!isToday && (
+                <Button size="sm" variant="flat" onPress={goToToday}>
+                  Hoy
+                </Button>
+              )}
+              <Button
+                isIconOnly
+                className="text-gray-600 hover:text-gray-800"
+                variant="light"
+                onPress={goToNextDay}
+              >
+                →
+              </Button>
+            </div>
           </div>
 
-          {/* Tasks for the day */}
+          {/* Tasks List */}
           <div className="space-y-4">
             {tasksForDay.length > 0 ? (
               tasksForDay.map((task) => {
-                const isCompleted = completedToday.includes(task.id);
-                const colorClasses = getColorClasses(task.color);
-                const currentStreak = calculateCurrentStreak(
-                  task,
-                  completedTasksState,
-                );
+                const isCompleted = completedTaskIds.includes(task.id);
+                const stats = taskStats[task.id];
+                const currentStreak = stats?.currentStreak || 0;
+                const colorClasses = getTaskColorClasses(task.color);
+
+                // Check if streak would be broken (only for today and past days)
                 const isStreakBroken =
-                  !isCompleted &&
-                  !isFuture &&
-                  isStreakBrokenOnDay(task, selectedDate, completedTasksState);
+                  !isFuture && !isCompleted && stats?.isStreakBroken;
 
                 return (
                   <Card
                     key={task.id}
-                    className={`transition-all duration-200 ${
-                      isCompleted
-                        ? `${colorClasses.bg} ${colorClasses.border} border-2`
-                        : isStreakBroken
-                          ? "bg-red-50 border-2 border-red-200"
-                          : "bg-gray-50 border border-gray-200"
-                    } ${isFuture ? "opacity-60" : ""}`}
+                    className={`${colorClasses.border} ${
+                      isCompleted ? colorClasses.bg : "bg-white/90"
+                    } shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] border-2`}
                   >
-                    <CardBody className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4 flex-1">
+                    <CardBody className="p-6">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0">
                           <Checkbox
-                            color={isCompleted ? "success" : "default"}
+                            className="scale-125"
+                            color="success"
                             isDisabled={isFuture}
                             isSelected={isCompleted}
                             size="lg"
                             onValueChange={() => toggleTaskCompletion(task.id)}
                           />
+                        </div>
 
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3
-                                className={`text-lg font-medium ${
-                                  isCompleted
-                                    ? `${colorClasses.text}`
-                                    : isStreakBroken
-                                      ? "text-red-700"
-                                      : "text-gray-800"
-                                }`}
-                              >
-                                {task.name}
-                              </h3>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3
+                              className={`text-xl font-bold ${
+                                isCompleted
+                                  ? `line-through ${colorClasses.text}`
+                                  : "text-gray-800"
+                              }`}
+                            >
+                              {task.name}
+                            </h3>
 
-                              {isStreakBroken && (
-                                <Chip color="danger" size="sm" variant="flat">
-                                  💔 Racha rota
-                                </Chip>
-                              )}
+                            {isStreakBroken && (
+                              <Chip color="danger" size="sm" variant="flat">
+                                💔 Racha rota
+                              </Chip>
+                            )}
 
-                              {isCompleted && (
-                                <Chip color="success" size="sm" variant="flat">
-                                  ✅ Completada
-                                </Chip>
-                              )}
-                            </div>
+                            {isFuture && (
+                              <Chip color="default" size="sm" variant="flat">
+                                🔮 Día futuro
+                              </Chip>
+                            )}
 
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              <span>⏰ {task.time}</span>
-                              <span>🔥 Racha actual: {currentStreak}</span>
-                              <Badge color="default" size="sm" variant="flat">
-                                {task.days
-                                  .map((day) => {
-                                    const dayMap: { [key: string]: string } = {
-                                      monday: "L",
-                                      tuesday: "M",
-                                      wednesday: "X",
-                                      thursday: "J",
-                                      friday: "V",
-                                      saturday: "S",
-                                      sunday: "D",
-                                    };
+                            {isCompleted && (
+                              <Chip color="success" size="sm" variant="flat">
+                                ✅ Completada
+                              </Chip>
+                            )}
+                          </div>
 
-                                    return dayMap[day] || "?";
-                                  })
-                                  .join("")}
-                              </Badge>
-                            </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span>⏰ {task.time}</span>
+                            <span>🔥 Racha actual: {currentStreak}</span>
+                            <Badge color="default" size="sm" variant="flat">
+                              {task.days
+                                .map((day) => {
+                                  const dayMap: { [key: string]: string } = {
+                                    monday: "L",
+                                    tuesday: "M",
+                                    wednesday: "X",
+                                    thursday: "J",
+                                    friday: "V",
+                                    saturday: "S",
+                                    sunday: "D",
+                                  };
+
+                                  return dayMap[day] || "?";
+                                })
+                                .join("")}
+                            </Badge>
                           </div>
                         </div>
                       </div>
@@ -276,20 +399,20 @@ export default function TodayPage() {
                   <div className="flex justify-center gap-6 text-sm">
                     <div>
                       <span className="text-blue-600 font-medium">
-                        {completedToday.length}
+                        {completedTaskIds.length}
                       </span>
                       <span className="text-blue-700 ml-1">completadas</span>
                     </div>
                     <div>
                       <span className="text-blue-600 font-medium">
-                        {tasksForDay.length - completedToday.length}
+                        {tasksForDay.length - completedTaskIds.length}
                       </span>
                       <span className="text-blue-700 ml-1">pendientes</span>
                     </div>
                     <div>
                       <span className="text-blue-600 font-medium">
                         {Math.round(
-                          (completedToday.length / tasksForDay.length) * 100,
+                          (completedTaskIds.length / tasksForDay.length) * 100,
                         )}
                         %
                       </span>

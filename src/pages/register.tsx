@@ -15,7 +15,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  
+
   const navigate = useNavigate();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
@@ -29,16 +29,19 @@ export default function RegisterPage() {
     // Validaciones básicas
     if (!email || !password || !confirmPassword) {
       setError("Todos los campos son obligatorios");
+
       return;
     }
 
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden");
+
       return;
     }
 
     if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres");
+
       return;
     }
 
@@ -53,12 +56,15 @@ export default function RegisterPage() {
       if (error) {
         setError(error.message);
       } else if (data.user) {
-        setSuccess("¡Registro exitoso! Revisa tu email para confirmar tu cuenta.");
+        setSuccess(
+          "¡Registro exitoso! Revisa tu email para confirmar tu cuenta.",
+        );
         // Opcional: redirigir después de un tiempo
         setTimeout(() => {
           navigate("/login");
         }, 3000);
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
       setError("Error inesperado. Inténtalo de nuevo.");
     } finally {
@@ -78,16 +84,18 @@ export default function RegisterPage() {
 
         <Card className="max-w-md w-full">
           <CardHeader className="pb-0 pt-6 px-6">
-            <h2 className="text-xl font-semibold text-center w-full">Registro</h2>
+            <h2 className="text-xl font-semibold text-center w-full">
+              Registro
+            </h2>
           </CardHeader>
           <CardBody className="p-6">
-            <form onSubmit={handleRegister} className="space-y-4">
+            <form className="space-y-4" onSubmit={handleRegister}>
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                   {error}
                 </div>
               )}
-              
+
               {success && (
                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
                   {success}
@@ -95,22 +103,17 @@ export default function RegisterPage() {
               )}
 
               <Input
-                type="email"
+                isRequired
                 label="Email"
                 placeholder="tu@email.com"
+                type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                isRequired
                 variant="bordered"
+                onChange={(e) => setEmail(e.target.value)}
               />
 
               <Input
-                label="Contraseña"
-                placeholder="Ingresa tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 isRequired
-                variant="bordered"
                 endContent={
                   <button
                     className="focus:outline-none text-gray-400 hover:text-gray-600"
@@ -120,16 +123,16 @@ export default function RegisterPage() {
                     {isVisible ? "🙈" : "👁️"}
                   </button>
                 }
+                label="Contraseña"
+                placeholder="Ingresa tu contraseña"
                 type={isVisible ? "text" : "password"}
+                value={password}
+                variant="bordered"
+                onChange={(e) => setPassword(e.target.value)}
               />
 
               <Input
-                label="Confirmar Contraseña"
-                placeholder="Confirma tu contraseña"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
                 isRequired
-                variant="bordered"
                 endContent={
                   <button
                     className="focus:outline-none text-gray-400 hover:text-gray-600"
@@ -139,16 +142,21 @@ export default function RegisterPage() {
                     {isConfirmVisible ? "🙈" : "👁️"}
                   </button>
                 }
+                label="Confirmar Contraseña"
+                placeholder="Confirma tu contraseña"
                 type={isConfirmVisible ? "text" : "password"}
+                value={confirmPassword}
+                variant="bordered"
+                onChange={(e) => setConfirmPassword(e.target.value)}
               />
 
               <Button
-                type="submit"
-                color="primary"
-                size="lg"
                 className="w-full"
-                isLoading={loading}
+                color="primary"
                 disabled={loading}
+                isLoading={loading}
+                size="lg"
+                type="submit"
               >
                 {loading ? "Creando cuenta..." : "Crear Cuenta"}
               </Button>
@@ -157,9 +165,9 @@ export default function RegisterPage() {
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 ¿Ya tienes una cuenta?{" "}
-                <Link 
-                  to="/login" 
+                <Link
                   className="text-blue-600 hover:text-blue-800 font-medium"
+                  to="/login"
                 >
                   Inicia sesión
                 </Link>

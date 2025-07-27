@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from "@/lib/supabaseClient";
 
 export interface Task {
   id: string;
@@ -25,19 +25,17 @@ export interface UpdateTaskRequest {
 }
 
 export class TaskService {
-  
   /**
    * Obtener todas las tareas del usuario autenticado
    */
   static async getTasks(): Promise<Task[]> {
     const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .order('created_at', { ascending: true });
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: true });
 
     if (error) {
-      console.error('Error fetching tasks:', error);
-      throw new Error('Failed to fetch tasks');
+      throw new Error("Failed to fetch tasks");
     }
 
     return data || [];
@@ -47,14 +45,16 @@ export class TaskService {
    * Crear una nueva tarea
    */
   static async createTask(taskData: CreateTaskRequest): Promise<Task> {
-    const { data: { user } } = await supabase.auth.getUser();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     if (!user) {
-      throw new Error('User not authenticated');
+      throw new Error("User not authenticated");
     }
 
     const { data, error } = await supabase
-      .from('tasks')
+      .from("tasks")
       .insert([
         {
           user_id: user.id,
@@ -62,15 +62,14 @@ export class TaskService {
           color: taskData.color,
           time: taskData.time,
           days: taskData.days,
-          created_at: new Date().toISOString().split('T')[0] // YYYY-MM-DD format
-        }
+          created_at: new Date().toISOString().split("T")[0], // YYYY-MM-DD format
+        },
       ])
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating task:', error);
-      throw new Error('Failed to create task');
+      throw new Error("Failed to create task");
     }
 
     return data;
@@ -79,17 +78,19 @@ export class TaskService {
   /**
    * Actualizar una tarea existente
    */
-  static async updateTask(taskId: string, updates: UpdateTaskRequest): Promise<Task> {
+  static async updateTask(
+    taskId: string,
+    updates: UpdateTaskRequest,
+  ): Promise<Task> {
     const { data, error } = await supabase
-      .from('tasks')
+      .from("tasks")
       .update(updates)
-      .eq('id', taskId)
+      .eq("id", taskId)
       .select()
       .single();
 
     if (error) {
-      console.error('Error updating task:', error);
-      throw new Error('Failed to update task');
+      throw new Error("Failed to update task");
     }
 
     return data;
@@ -99,14 +100,10 @@ export class TaskService {
    * Eliminar una tarea
    */
   static async deleteTask(taskId: string): Promise<void> {
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', taskId);
+    const { error } = await supabase.from("tasks").delete().eq("id", taskId);
 
     if (error) {
-      console.error('Error deleting task:', error);
-      throw new Error('Failed to delete task');
+      throw new Error("Failed to delete task");
     }
   }
 
@@ -115,17 +112,16 @@ export class TaskService {
    */
   static async getTask(taskId: string): Promise<Task | null> {
     const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('id', taskId)
+      .from("tasks")
+      .select("*")
+      .eq("id", taskId)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null; // Task not found
       }
-      console.error('Error fetching task:', error);
-      throw new Error('Failed to fetch task');
+      throw new Error("Failed to fetch task");
     }
 
     return data;
@@ -136,14 +132,13 @@ export class TaskService {
    */
   static async getTasksForDay(dayOfWeek: string): Promise<Task[]> {
     const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .contains('days', [dayOfWeek])
-      .order('time', { ascending: true });
+      .from("tasks")
+      .select("*")
+      .contains("days", [dayOfWeek])
+      .order("time", { ascending: true });
 
     if (error) {
-      console.error('Error fetching tasks for day:', error);
-      throw new Error('Failed to fetch tasks for day');
+      throw new Error("Failed to fetch tasks for day");
     }
 
     return data || [];
@@ -154,14 +149,13 @@ export class TaskService {
    */
   static async searchTasks(query: string): Promise<Task[]> {
     const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .ilike('name', `%${query}%`)
-      .order('created_at', { ascending: true });
+      .from("tasks")
+      .select("*")
+      .ilike("name", `%${query}%`)
+      .order("created_at", { ascending: true });
 
     if (error) {
-      console.error('Error searching tasks:', error);
-      throw new Error('Failed to search tasks');
+      throw new Error("Failed to search tasks");
     }
 
     return data || [];

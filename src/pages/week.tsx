@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardBody,
-  Badge,
   Button,
   Modal,
   ModalContent,
@@ -18,17 +17,10 @@ import {
 
 import { title } from "@/components/primitives";
 import DefaultLayout from "@/layouts/default";
-import tasks from "@/data/weekly_tasks.json";
+import { TaskService, Task } from "@/services/taskService";
+import { useAuth } from "@/context/AuthContext";
 
 // Types
-interface Task {
-  id: string;
-  name: string;
-  days: string[];
-  time: string;
-  color: string;
-}
-
 interface NewTask {
   name: string;
   days: string[];
@@ -111,24 +103,9 @@ const AVAILABLE_COLORS = [
   { key: "red", label: "Rojo" },
 ];
 
-// Clean up task data to ensure all IDs are valid
-const cleanTaskData = (tasks: Task[]): Task[] => {
-  return tasks.filter(
-    (task) =>
-      task.id &&
-      !isNaN(parseInt(task.id)) &&
-      task.name &&
-      task.days &&
-      Array.isArray(task.days) &&
-      task.time &&
-      task.color,
-  );
-};
-
 export default function WeekPage() {
-  const [weeklyTasks, setWeeklyTasks] = useState<Task[]>(
-    cleanTaskData(tasks as Task[]),
-  );
+  const { user, loading: authLoading } = useAuth();
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [newTask, setNewTask] = useState<NewTask>({
     name: "",
@@ -142,6 +119,9 @@ export default function WeekPage() {
   } | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [isTaskPaletteOpen, setIsTaskPaletteOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const {
     isOpen: isEditOpen,
     onOpen: onEditOpen,
@@ -153,9 +133,30 @@ export default function WeekPage() {
     onClose: onNewClose,
   } = useDisclosure();
 
+  useEffect(() => {
+    if (!user || authLoading) return;
+
+    const fetchTasks = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const tasksData = await TaskService.getTasks();
+
+        setTasks(tasksData);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (err) {
+        setError("Error al cargar las tareas. Por favor, inténtalo de nuevo.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTasks();
+  }, [user, authLoading]);
+
   // Group tasks by day and time for display
   const getTasksForDay = (day: string) => {
-    return weeklyTasks
+    return tasks
       .filter((task) => task.days.includes(day))
       .sort((a, b) => a.time.localeCompare(b.time));
   };
@@ -167,39 +168,60 @@ export default function WeekPage() {
   };
 
   // Handle task deletion
-  const handleDeleteTask = (taskId: string) => {
-    setWeeklyTasks((prev) => prev.filter((task) => task.id !== taskId));
-    onEditClose();
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await TaskService.deleteTask(taskId);
+      setTasks((prev) => prev.filter((task) => task.id !== taskId));
+      onEditClose();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      setError("Error al eliminar la tarea. Por favor, inténtalo de nuevo.");
+    }
   };
 
   // Handle task update
-  const handleUpdateTask = (updatedTask: Task) => {
-    setWeeklyTasks((prev) =>
-      prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)),
-    );
-    onEditClose();
+  const handleUpdateTask = async (updatedTask: Task) => {
+    try {
+      const updated = await TaskService.updateTask(updatedTask.id, {
+        name: updatedTask.name,
+        days: updatedTask.days,
+        time: updatedTask.time,
+        color: updatedTask.color,
+      });
+
+      setTasks((prev) =>
+        prev.map((task) => (task.id === updated.id ? updated : task)),
+      );
+      onEditClose();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      setError("Error al actualizar la tarea. Por favor, inténtalo de nuevo.");
+    }
   };
 
   // Handle new task creation
-  const handleCreateTask = () => {
-    if (newTask.name.trim() && newTask.days.length > 0) {
-      // Generate a safe new ID
-      const existingIds = weeklyTasks
-        .map((t) => parseInt(t.id))
-        .filter((id) => !isNaN(id));
-      const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
-      const newId = (maxId + 1).toString();
-      const taskToAdd: Task = {
-        id: newId,
+  const handleCreateTask = async () => {
+    if (!newTask.name.trim() || newTask.days.length === 0) return;
+
+    try {
+      const created = await TaskService.createTask({
         name: newTask.name.trim(),
         days: newTask.days,
         time: newTask.time,
         color: newTask.color,
-      };
+      });
 
-      setWeeklyTasks((prev) => [...prev, taskToAdd]);
-      setNewTask({ name: "", days: [], time: "08:00", color: "blue" });
+      setTasks((prev) => [...prev, created]);
+      setNewTask({
+        name: "",
+        days: [],
+        time: "08:00",
+        color: "blue",
+      });
       onNewClose();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      setError("Error al crear la tarea. Por favor, inténtalo de nuevo.");
     }
   };
 
@@ -216,11 +238,16 @@ export default function WeekPage() {
   // Toggle day for existing task
   const toggleTaskDay = (day: string) => {
     if (!selectedTask) return;
-    const updatedDays = selectedTask.days.includes(day)
-      ? selectedTask.days.filter((d) => d !== day)
-      : [...selectedTask.days, day];
+    setSelectedTask((prev) => {
+      if (!prev) return prev;
 
-    setSelectedTask({ ...selectedTask, days: updatedDays });
+      return {
+        ...prev,
+        days: prev.days.includes(day)
+          ? prev.days.filter((d) => d !== day)
+          : [...prev.days, day],
+      };
+    });
   };
 
   // Drag and drop handlers
@@ -231,23 +258,20 @@ export default function WeekPage() {
   ) => {
     setDraggedTask({ task, sourceDay });
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", "");
   };
 
   const handleDragOver = (e: React.DragEvent, targetDay: string) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
     setDragOverDay(targetDay);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only clear drag over if we're leaving the drop zone completely
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setDragOverDay(null);
     }
   };
 
-  const handleDrop = (e: React.DragEvent, targetDay: string) => {
+  const handleDrop = async (e: React.DragEvent, targetDay: string) => {
     e.preventDefault();
     setDragOverDay(null);
 
@@ -255,32 +279,41 @@ export default function WeekPage() {
 
     const { task, sourceDay } = draggedTask;
 
-    // If dropping on the same day, do nothing
+    // Don't do anything if dropping on the same day
     if (sourceDay === targetDay) {
       setDraggedTask(null);
 
       return;
     }
 
-    let updatedDays: string[];
+    try {
+      let updatedDays = [...task.days];
 
-    if (sourceDay === null) {
-      // Coming from task palette - just add to target day
-      updatedDays = task.days.includes(targetDay)
-        ? task.days
-        : [...task.days, targetDay];
-    } else {
-      // Coming from another day - move from source to target
-      updatedDays = task.days.filter((day) => day !== sourceDay);
-      if (!updatedDays.includes(targetDay)) {
-        updatedDays.push(targetDay);
+      if (sourceDay) {
+        // Moving from one day to another - remove from source, add to target
+        updatedDays = updatedDays.filter((day) => day !== sourceDay);
+        if (!updatedDays.includes(targetDay)) {
+          updatedDays.push(targetDay);
+        }
+      } else {
+        // Adding to a new day from palette
+        if (!updatedDays.includes(targetDay)) {
+          updatedDays.push(targetDay);
+        }
       }
-    }
 
-    // Update the task in the list
-    setWeeklyTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, days: updatedDays } : t)),
-    );
+      const updated = await TaskService.updateTask(task.id, {
+        name: task.name,
+        days: updatedDays,
+        time: task.time,
+        color: task.color,
+      });
+
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      setError("Error al mover la tarea. Por favor, inténtalo de nuevo.");
+    }
 
     setDraggedTask(null);
   };
@@ -291,199 +324,242 @@ export default function WeekPage() {
   };
 
   // Handle dropping task outside calendar (delete from day)
-  const handleDeleteDrop = (e: React.DragEvent) => {
+  const handleDeleteDrop = async (e: React.DragEvent) => {
     e.preventDefault();
 
     if (!draggedTask || !draggedTask.sourceDay) return;
 
     const { task, sourceDay } = draggedTask;
 
-    // Remove the task from the source day
-    const updatedDays = task.days.filter((day) => day !== sourceDay);
+    try {
+      const updatedDays = task.days.filter((day) => day !== sourceDay);
 
-    if (updatedDays.length === 0) {
-      // If no days left, delete the entire task
-      setWeeklyTasks((prev) => prev.filter((t) => t.id !== task.id));
-    } else {
-      // Update the task with remaining days
-      setWeeklyTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, days: updatedDays } : t)),
+      if (updatedDays.length === 0) {
+        // If no days left, delete the entire task
+        await TaskService.deleteTask(task.id);
+        setTasks((prev) => prev.filter((t) => t.id !== task.id));
+      } else {
+        // Otherwise just remove from that day
+        const updated = await TaskService.updateTask(task.id, {
+          name: task.name,
+          days: updatedDays,
+          time: task.time,
+          color: task.color,
+        });
+
+        setTasks((prev) =>
+          prev.map((t) => (t.id === updated.id ? updated : t)),
+        );
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      setError(
+        "Error al eliminar la tarea del día. Por favor, inténtalo de nuevo.",
       );
     }
 
     setDraggedTask(null);
   };
 
+  if (authLoading || loading) {
+    return (
+      <DefaultLayout>
+        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+          <div className="animate-pulse text-center">
+            <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-4" />
+            <div className="h-4 bg-gray-200 rounded w-48 mx-auto" />
+          </div>
+        </section>
+      </DefaultLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DefaultLayout>
+        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+          <div className="text-center">
+            <h1 className={title()}>Error</h1>
+            <p className="text-red-600 mt-4">{error}</p>
+            <Button
+              className="mt-4"
+              color="primary"
+              onPress={() => window.location.reload()}
+            >
+              Reintentar
+            </Button>
+          </div>
+        </section>
+      </DefaultLayout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <DefaultLayout>
+        <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+          <div className="text-center">
+            <h1 className={title()}>Acceso Requerido</h1>
+            <p className="text-gray-600 mt-4">
+              Debes iniciar sesión para ver tu calendario semanal.
+            </p>
+          </div>
+        </section>
+      </DefaultLayout>
+    );
+  }
+
   return (
     <DefaultLayout>
-      <section className="flex flex-col gap-6 py-8 px-4 md:px-10">
-        <div className="flex items-center justify-between">
-          <h1 className={title()}>Vista Semanal</h1>
-          <div className="flex gap-2">
+      <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
+        <div className="inline-block max-w-lg text-center justify-center">
+          <h1 className={title()}>Calendario Semanal</h1>
+        </div>
+
+        <div className="max-w-7xl w-full px-4">
+          {/* Action buttons */}
+          <div className="flex justify-between items-center mb-6">
+            <Button className="font-medium" color="primary" onPress={onNewOpen}>
+              Nueva Tarea
+            </Button>
             <Button
               color="secondary"
               variant="flat"
               onPress={() => setIsTaskPaletteOpen(!isTaskPaletteOpen)}
             >
-              {isTaskPaletteOpen ? "← Ocultar Tareas" : "Mostrar Tareas →"}
-            </Button>
-            <Button color="primary" onPress={onNewOpen}>
-              + Nueva Tarea
+              {isTaskPaletteOpen ? "Ocultar" : "Mostrar"} Paleta de Tareas
             </Button>
           </div>
-        </div>
 
-        {/* Main Content Area */}
-        <div className="flex gap-4">
-          {/* Task Palette Panel */}
+          {/* Task Palette */}
           {isTaskPaletteOpen && (
-            <div className="w-64 flex-shrink-0">
-              <Card className="h-fit">
-                <CardBody className="p-4">
-                  <h3 className="text-lg font-semibold mb-3">
-                    Todas las Tareas
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Arrastra cualquier tarea a un día para asignarla
-                  </p>
-
-                  <div className="space-y-2">
-                    {weeklyTasks
-                      .filter((task) => task.id && !isNaN(parseInt(task.id))) // Filter out invalid tasks
-                      .map((task) => (
-                        <div
-                          key={`palette-${task.id}`}
-                          draggable
-                          className={`cursor-move transition-all duration-200 rounded-lg border-2 p-3 ${getTaskColorClasses(
-                            task.color,
-                          )} ${draggedTask?.task.id === task.id && draggedTask?.sourceDay === null ? "opacity-50" : ""}`}
-                          onDragEnd={handleDragEnd}
-                          onDragStart={(e) => handleDragStart(e, task, null)}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <Badge
-                              className="bg-white/70"
-                              size="sm"
-                              variant="flat"
-                            >
-                              {task.time}
-                            </Badge>
-                            <div className="text-xs text-gray-500">📋</div>
-                          </div>
-                          <p className="text-sm font-medium text-gray-800">
+            <Card className="mb-6 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <CardBody className="p-4">
+                <h3 className="text-lg font-semibold mb-3">
+                  Paleta de Tareas (Arrastra para asignar)
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {tasks.map((task) => (
+                    <div
+                      key={`palette-${task.id}`}
+                      draggable
+                      aria-label={`Arrastrar tarea ${task.name}`}
+                      className={`p-2 rounded-lg border cursor-move transition-all ${getTaskColorClasses(
+                        task.color,
+                      )} ${
+                        draggedTask?.task.id === task.id
+                          ? "opacity-50 scale-95"
+                          : ""
+                      }`}
+                      role="button"
+                      tabIndex={0}
+                      onDragEnd={handleDragEnd}
+                      onDragStart={(e) => handleDragStart(e, task)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          // Could implement keyboard drag functionality here
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">📋</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">
                             {task.name}
-                          </p>
-                          <div className="mt-2">
-                            <div className="flex flex-wrap gap-1">
-                              {task.days.map((day) => {
-                                const dayInfo = DAYS_OF_WEEK.find(
-                                  (d) => d.key === day,
-                                );
-
-                                return (
-                                  <Chip key={day} size="sm" variant="flat">
-                                    {dayInfo?.short || day}
-                                  </Chip>
-                                );
-                              })}
-                            </div>
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {task.time}
                           </div>
                         </div>
-                      ))}
-                  </div>
-                </CardBody>
-              </Card>
-            </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
           )}
 
-          {/* Weekly Schedule Grid */}
-          <div
-            className={`grid grid-cols-1 lg:grid-cols-7 gap-4 flex-1 ${isTaskPaletteOpen ? "min-w-0" : ""}`}
-          >
+          {/* Weekly Calendar Grid */}
+          <div className="grid grid-cols-7 gap-4 mb-4">
             {DAYS_OF_WEEK.map((day) => (
-              <Card
-                key={day.key}
-                className={`min-h-[400px] transition-all duration-200 ${
-                  dragOverDay === day.key
-                    ? "ring-2 ring-blue-400 bg-blue-50"
-                    : ""
-                }`}
-              >
-                <CardBody
-                  className="p-4 h-full"
+              <div key={day.key} className="text-center">
+                <h3 className="font-semibold text-lg mb-2">{day.short}</h3>
+                <div
+                  className={`min-h-[400px] p-3 rounded-xl border-2 border-dashed transition-all ${
+                    dragOverDay === day.key
+                      ? "border-blue-400 bg-blue-100/50 backdrop-blur-sm"
+                      : "border-gray-300/50 bg-white/30 backdrop-blur-sm"
+                  }`}
                   onDragLeave={handleDragLeave}
                   onDragOver={(e) => handleDragOver(e, day.key)}
                   onDrop={(e) => handleDrop(e, day.key)}
                 >
-                  <div className="text-center mb-4">
-                    <h3 className="text-lg font-bold">{day.short}</h3>
-                    <p className="text-sm text-gray-500">{day.label}</p>
-                  </div>
+                  <div className="space-y-2">
+                    {getTasksForDay(day.key).map((task) => (
+                      <div
+                        key={`${task.id}-${day.key}`}
+                        draggable
+                        aria-label={`Tarea ${task.name} en ${day.label}. Click para editar o arrastrar para mover`}
+                        className={`p-3 rounded-lg border cursor-move transition-all shadow-md hover:shadow-lg hover:scale-105 ${getTaskColorClasses(
+                          task.color,
+                        )} ${
+                          draggedTask?.task.id === task.id &&
+                          draggedTask?.sourceDay === day.key
+                            ? "opacity-50 scale-95"
+                            : ""
+                        }`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleEditTask(task)}
+                        onDragEnd={handleDragEnd}
+                        onDragStart={(e) => handleDragStart(e, task, day.key)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleEditTask(task);
+                          } else if (e.key === " ") {
+                            e.preventDefault();
+                            // Could implement keyboard drag functionality here
+                          }
+                        }}
+                      >
+                        <div className="text-sm font-medium">{task.name}</div>
+                        <div className="text-xs text-gray-600">{task.time}</div>
+                      </div>
+                    ))}
 
-                  <div className="space-y-2 flex-1">
-                    {getTasksForDay(day.key)
-                      .filter((task) => task.id && !isNaN(parseInt(task.id))) // Filter out invalid tasks
-                      .map((task) => (
-                        <div
-                          key={`${task.id}-${day.key}`}
-                          draggable
-                          className={`cursor-move transition-all duration-200 rounded-lg border-2 p-3 ${getTaskColorClasses(
-                            task.color,
-                          )} ${draggedTask?.task.id === task.id && draggedTask?.sourceDay === day.key ? "opacity-50" : ""}`}
-                          onClick={() => handleEditTask(task)}
-                          onDragEnd={handleDragEnd}
-                          onDragStart={(e) => handleDragStart(e, task, day.key)}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <Badge
-                              className="bg-white/70"
-                              size="sm"
-                              variant="flat"
-                            >
-                              {task.time}
-                            </Badge>
-                            <div className="text-xs text-gray-500">📋</div>
-                          </div>
-                          <p className="text-sm font-medium text-gray-800">
-                            {task.name}
-                          </p>
-                        </div>
-                      ))}
-
-                    {getTasksForDay(day.key).length === 0 && (
-                      <div className="text-center text-gray-400 text-sm py-8 flex-1 flex items-center justify-center border-2 border-dashed border-gray-200 rounded-lg">
-                        {dragOverDay === day.key ? "Suelta aquí" : "Sin tareas"}
+                    {dragOverDay === day.key && (
+                      <div className="p-2 text-center text-sm text-blue-600 bg-blue-100 rounded-lg border-2 border-dashed border-blue-300">
+                        Suelta aquí
                       </div>
                     )}
                   </div>
-                </CardBody>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
 
-        {/* Delete Zone */}
-        {draggedTask && draggedTask.sourceDay && (
-          <div
-            className="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg border-2 border-dashed border-red-300 transition-all duration-200 hover:bg-red-600"
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "move";
-            }}
-            onDrop={handleDeleteDrop}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🗑️</span>
-              <span className="text-sm font-medium">
-                Arrastra aquí para eliminar de{" "}
+          {/* Delete Zone */}
+          {draggedTask && draggedTask.sourceDay && (
+            <div
+              aria-label="Zona de eliminación de tareas"
+              className="fixed bottom-4 right-4 p-4 bg-red-100 border-2 border-dashed border-red-400 rounded-lg text-red-700 text-center z-50"
+              role="region"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDeleteDrop}
+            >
+              <div className="text-2xl mb-1">🗑️</div>
+              <div className="text-sm font-medium">
+                Eliminar del{" "}
                 {
                   DAYS_OF_WEEK.find((d) => d.key === draggedTask.sourceDay)
                     ?.label
                 }
-              </span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Edit Task Modal */}
         <Modal isOpen={isEditOpen} size="2xl" onClose={onEditClose}>
@@ -496,7 +572,10 @@ export default function WeekPage() {
                     label="Nombre de la tarea"
                     value={selectedTask.name}
                     onChange={(e) =>
-                      setSelectedTask({ ...selectedTask, name: e.target.value })
+                      setSelectedTask({
+                        ...selectedTask,
+                        name: e.target.value,
+                      })
                     }
                   />
 
@@ -547,11 +626,15 @@ export default function WeekPage() {
                       {AVAILABLE_COLORS.map((colorOption) => (
                         <div
                           key={colorOption.key}
+                          aria-label={`Seleccionar color ${colorOption.label}`}
+                          aria-pressed={selectedTask.color === colorOption.key}
                           className={`w-8 h-8 rounded-full cursor-pointer border-2 transition-all ${
                             selectedTask.color === colorOption.key
                               ? "border-gray-800 scale-110"
                               : "border-gray-300 hover:border-gray-500"
                           } ${getTaskColorClasses(colorOption.key).split(" ")[0]}`}
+                          role="button"
+                          tabIndex={0}
                           title={colorOption.label}
                           onClick={() =>
                             setSelectedTask({
@@ -559,6 +642,15 @@ export default function WeekPage() {
                               color: colorOption.key,
                             })
                           }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setSelectedTask({
+                                ...selectedTask,
+                                color: colorOption.key,
+                              });
+                            }
+                          }}
                         />
                       ))}
                     </div>
@@ -650,15 +742,25 @@ export default function WeekPage() {
                     {AVAILABLE_COLORS.map((colorOption) => (
                       <div
                         key={colorOption.key}
+                        aria-label={`Seleccionar color ${colorOption.label}`}
+                        aria-pressed={newTask.color === colorOption.key}
                         className={`w-8 h-8 rounded-full cursor-pointer border-2 transition-all ${
                           newTask.color === colorOption.key
                             ? "border-gray-800 scale-110"
                             : "border-gray-300 hover:border-gray-500"
                         } ${getTaskColorClasses(colorOption.key).split(" ")[0]}`}
+                        role="button"
+                        tabIndex={0}
                         title={colorOption.label}
                         onClick={() =>
                           setNewTask({ ...newTask, color: colorOption.key })
                         }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setNewTask({ ...newTask, color: colorOption.key });
+                          }
+                        }}
                       />
                     ))}
                   </div>
