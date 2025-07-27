@@ -10,7 +10,6 @@ import {
   DailyHistoryItem,
 } from "@/services/statsService";
 import { useAuth } from "@/context/AuthContext";
-import { NotificationSettings } from "@/components/NotificationSettings";
 
 // Helper functions (adapted from streakUtils)
 const getTaskColorClasses = (color: string) => {
@@ -176,10 +175,6 @@ export default function SummaryPage() {
         </div>
 
         <div className="max-w-6xl w-full px-4">
-          {/* Notification Settings */}
-          <div className="mb-8">
-            <NotificationSettings />
-          </div>
           {/* Task Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {tasks.map((task) => {
