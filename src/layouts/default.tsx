@@ -2,6 +2,7 @@ import { Link } from "@heroui/link";
 import React from "react";
 
 import { Navbar } from "@/components/navbar";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 export default function DefaultLayout({
   children,
@@ -26,6 +27,7 @@ export default function DefaultLayout({
           </span>
         </Link>
       </footer>
+      <PWAInstallPrompt />
     </div>
   );
 }
